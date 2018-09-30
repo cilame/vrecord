@@ -1,27 +1,7 @@
-
-##import tkinter
-##import pyHook
-##import win32gui
-##
-##
-##def edit_window():
-##    # window 并不是唯一的，而是通过呼出创建，通过关闭
-##    # 或者获取到某些按键事件之后就毁灭。
-##    pass
-##
-##def some(editkey='F1',startkey='F2',pausekey='F3',stopkey='F4'):
-##    pass
-##
-###v = win32gui.FindWindow('vedit','')
-
-
 import pyHook
 import pythoncom
 import win32api
 import tkinter
-import threading
-
-hookmanager = pyHook.HookManager()
 
 class key_mouse_manager():
 
@@ -113,6 +93,7 @@ class key_mouse_manager():
 
 if __name__ == '__main__':
     mykbmanager = key_mouse_manager()
+    hookmanager = pyHook.HookManager()
     hookmanager.KeyDown  = mykbmanager.on_key_down
     hookmanager.KeyUp    = mykbmanager.on_key_up
     hookmanager.MouseAll = mykbmanager.on_mouse_event
