@@ -59,6 +59,11 @@ class HotkeyHooker:
         可以直接将 combine 参数设置为 'control+shift' 也能实现组合键功能
         参数也可以不需要填入 '+' 符号，'controlshift' 这样的结果也是一样的
         为了语义更明确，建议输入时候带上 + 符号。
+
+        
+        另外 key 也能接收单个字符串，不过请注意，目前语义加深做得不够好
+        目前只能接收字母作为组合键的 key，如果需要 F1 这类的键位
+        请直接使用 win32con.VK_F10 直接作为 key 即可绑定。
         '''
         if type(combine) == str:
             _combine = 0
@@ -67,6 +72,9 @@ class HotkeyHooker:
             _combine = _combine|4 if 'shift'    in combine.lower() else _combine
             _combine = _combine|8 if 'win'      in combine.lower() else _combine
             combine = _combine
+
+        if type(key) == str and len(key) == 1:
+            key = ord(key.upper())
 
         self.combins.add(combine)
         self.regdict[self.tempids.pop()] = {
@@ -82,6 +90,10 @@ class HotkeyHooker:
             'callback': callback, 
             'combine':  combine,
         }
+
+
+
+
 
 
 
