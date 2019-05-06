@@ -103,21 +103,46 @@ class HotkeyHooker:
 
 # 处理一些实时回显以及处理 DEBUG 方面的功能
 import win32gui, win32api
-def drawtext(text):
-    '''
-    在鼠标所在为止写入一个字符串
-    '''
-    t = win32gui.GetDC(win32gui.GetDesktopWindow())
-    w,h = win32api.GetSystemMetrics(0),win32api.GetSystemMetrics(1)
-    x,y = win32api.GetCursorPos()
-    win32gui.DrawText(t,text,-1,(x,y,w,h),8)
+class MouseManager:
 
-def quick_clicks():
-    '''
-    连点处理
-    '''
-    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+    def reflush_window(self):
+        '''
+        目前不知道为什么无效
+        '''
+        dhand = win32gui.GetDesktopWindow()
+        drect = win32gui.GetWindowRect(dhand)
+        win32gui.InvalidateRect(dhand, drect, True)
+        win32gui.UpdateWindow(dhand) # 刷新桌面信息，不保留前一次的绘制
+        win32gui.RedrawWindow(dhand, 
+            None,
+            None,
+            win32con.RDW_FRAME|
+            win32con.RDW_INVALIDATE|
+            win32con.RDW_UPDATENOW|
+            win32con.RDW_ALLCHILDREN)
+
+    def drawtext(self, text, redraw=True):
+        '''
+        在鼠标所在为止写入一个字符串
+        '''
+        t = win32gui.GetDC(win32gui.GetDesktopWindow())
+        w,h = win32api.GetSystemMetrics(0),win32api.GetSystemMetrics(1)
+        x,y = win32api.GetCursorPos()
+        if redraw:
+            self.reflush_window()
+        win32gui.DrawText(t,text,-1,(x,y,w,h),8)
+
+    def get_curr_pos(self):
+        return win32api.GetCursorPos()
+
+    def quick_clicks(self, pos:'Default CurrPos'=None):
+        '''
+        连点处理，没有坐标则直接使用鼠标当前为止坐标
+        '''
+        if pos:
+            win32api.SetCursorPos(pos)
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
 
 
@@ -133,15 +158,26 @@ class KeyManagerGui():
     def __init__(self):
         self.root = tkinter.Tk()
         self.draw = True
-        self.edit_window = None
 
     def exit(self):
+        self.show_root() # 如果不显示就退出可能出现卡死错误。
         self.root.quit()
 
     def start(self):
         self.root.mainloop()
 
-    def test_root_withdraw(self):
+
+    def show_root(self):
+        if not self.draw:
+            self.root.deiconify() # 显示隐藏窗口。withdraw 和 deiconify 为配对的函数。
+            self.draw = True
+
+    def hide_root(self):
+        if self.draw:
+            self.root.withdraw()
+            self.draw = False
+
+    def switch_draw(self):
         print('F1')
         if self.draw:
             self.root.withdraw()
@@ -154,7 +190,13 @@ class KeyManagerGui():
 if __name__ == '__main__':
     keygui = KeyManagerGui()
     hotkey = HotkeyHooker()
-    hotkey.regexit( win32con.VK_F10, keygui.exit)
-    hotkey.reg    ( win32con.VK_F1,  keygui.test_root_withdraw)
-    hotkey.start() # 注意 start 开启的顺序是 hotkeyhooker 兑现先挂钩再进入 keygui 的窗口循环事件当中
+    hotkey.regexit( win32con.VK_F10, keygui.exit) # 将窗口关闭挂钩到热键里面
+    hotkey.reg    ( win32con.VK_F1,  keygui.switch_draw)
+
+
+    mouse = MouseManager()
+    hotkey.reg    ( win32con.VK_F2,  lambda:mouse.drawtext(str(mouse.get_curr_pos())))
+
+
+    hotkey.start() # 注意 start 开启的顺序是 hotkey 兑现先挂钩再进入 keygui 的窗口循环事件当中
     keygui.start()
