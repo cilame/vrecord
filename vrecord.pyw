@@ -3,6 +3,7 @@ import win32con
 import ctypes
 import ctypes.wintypes
 import threading
+import traceback
 user32 = ctypes.windll.user32
 
 class HotkeyHooker:
@@ -21,13 +22,16 @@ class HotkeyHooker:
                 print("rebind register id", self.regdict[tid]['key'])
                 user32.UnregisterHotKey(None, self.regdict[tid]['key'])
         try:  
-            msg = ctypes.wintypes.MSG()  
+            msg = ctypes.wintypes.MSG()
             while True:
                 for modkey in self.combins:
                     if user32.GetMessageA(ctypes.byref(msg), None, modkey, 0) != 0:
                         if msg.message == win32con.WM_HOTKEY:
                             if msg.wParam in self.regdict:
-                                self.regdict[msg.wParam]['callback']()
+                                try:
+                                    self.regdict[msg.wParam]['callback']()
+                                except:
+                                    traceback.print_exc()
                                 if msg.wParam == self.EXIT_ID:
                                     return
                         user32.TranslateMessage(ctypes.byref(msg))
@@ -104,32 +108,13 @@ class HotkeyHooker:
 # 处理一些实时回显以及处理 DEBUG 方面的功能
 import win32gui, win32api
 class MouseManager:
-
-    def reflush_window(self):
-        '''
-        目前不知道为什么无效
-        '''
-        dhand = win32gui.GetDesktopWindow()
-        drect = win32gui.GetWindowRect(dhand)
-        win32gui.InvalidateRect(dhand, drect, True)
-        win32gui.UpdateWindow(dhand) # 刷新桌面信息，不保留前一次的绘制
-        win32gui.RedrawWindow(dhand, 
-            None,
-            None,
-            win32con.RDW_FRAME|
-            win32con.RDW_INVALIDATE|
-            win32con.RDW_UPDATENOW|
-            win32con.RDW_ALLCHILDREN)
-
-    def drawtext(self, text, redraw=True):
+    def drawtext(self, text):
         '''
         在鼠标所在为止写入一个字符串
         '''
         t = win32gui.GetDC(win32gui.GetDesktopWindow())
         w,h = win32api.GetSystemMetrics(0),win32api.GetSystemMetrics(1)
         x,y = win32api.GetCursorPos()
-        if redraw:
-            self.reflush_window()
         win32gui.DrawText(t,text,-1,(x,y,w,h),8)
 
     def get_curr_pos(self):
@@ -149,14 +134,86 @@ class MouseManager:
 
 
 
+import tkinter
+import tkinter.filedialog
+import os
+import tempfile
+import shutil
+from PIL import ImageGrab
+from time import sleep
+
+# 主要的截图处理工具，用于快速截图或者鼠标框选部分进行定位处理的工具
+class PicCapture:
+    def __init__(self, root, png):
+        self.X = tkinter.IntVar(value=0)
+        self.Y = tkinter.IntVar(value=0)
+        sw = root.winfo_screenwidth()
+        sh = root.winfo_screenheight()
+        self.top = tkinter.Toplevel(root, width=sw, height=sh)
+        self.top.overrideredirect(True)
+        self.canvas = tkinter.Canvas(self.top, bg='white', width=sw, height=sh)
+        self.image  = tkinter.PhotoImage(file=png)
+        self.canvas.create_image(sw//2, sh//2, image=self.image)
+        self.fin_draw = None
+        def btndown(event):
+            self.X.set(event.x)
+            self.Y.set(event.y)
+            self.sel = True
+        self.canvas.bind('<Button-1>', btndown)
+        def btnmove(event):
+            if not self.sel:
+                return
+            try:
+                self.canvas.delete(self.fin_draw)
+            except Exception as e:
+                pass
+            self.fin_draw = self.canvas.create_rectangle(
+                                    self.X.get(), 
+                                    self.Y.get(), 
+                                    event.x, 
+                                    event.y, 
+                                    outline='black')
+            
+        self.canvas.bind('<B1-Motion>', btnmove)
+        def btnup(event):
+            self.sel = False
+            try:
+                self.canvas.delete(self.fin_draw)
+            except Exception as e:
+                pass
+            left, right = sorted([self.X.get(), event.x])
+            top, bottom = sorted([self.Y.get(), event.y])
+            self.pic = ImageGrab.grab((left+1, top+1, right, bottom))
+            self.rect = (left, top, right, bottom)
+            self.top.destroy()
+        self.canvas.bind('<ButtonRelease-1>', btnup)
+        self.canvas.pack(fill=tkinter.BOTH, expand=tkinter.YES)
+
+def screenshot_rect(root):
+    filename = os.path.join(os.path.dirname(tempfile.mktemp()), 'temp.png')
+    snapshot = ImageGrab.grab()
+    snapshot.save(filename)
+    snapshot.close()
+    picshot = PicCapture(root, filename)
+    root.wait_window(picshot.top)
+    print(picshot.rect)
+    # picshot.pic.show() # 简单展示图片
+    os.remove(filename)
+
+
+
+
+
 
 
 # 这部分主要就是 GUI 的处理，为了更加人性化的使用
+# 后续会在该 GUI 主窗口中丰富主要的功能。
 import tkinter
 class KeyManagerGui():
 
     def __init__(self):
         self.root = tkinter.Tk()
+        self.root.protocol("WM_DELETE_WINDOW", lambda:None)
         self.draw = True
 
     def exit(self):
@@ -190,12 +247,14 @@ class KeyManagerGui():
 if __name__ == '__main__':
     keygui = KeyManagerGui()
     hotkey = HotkeyHooker()
-    hotkey.regexit( win32con.VK_F10, keygui.exit) # 将窗口关闭挂钩到热键里面
+    hotkey.regexit( win32con.VK_F4,  keygui.exit) # 将窗口关闭挂钩到热键里面
     hotkey.reg    ( win32con.VK_F1,  keygui.switch_draw)
 
 
     mouse = MouseManager()
-    hotkey.reg    ( win32con.VK_F2,  lambda:mouse.drawtext(str(mouse.get_curr_pos())))
+    hotkey.reg    ( win32con.VK_F2,  lambda:mouse.drawtext(str(mouse.get_curr_pos())+'\n当前坐标'))
+    hotkey.reg    ( win32con.VK_F3,  lambda:screenshot_rect(keygui.root))
+
 
 
     hotkey.start() # 注意 start 开启的顺序是 hotkey 兑现先挂钩再进入 keygui 的窗口循环事件当中
