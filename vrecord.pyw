@@ -183,7 +183,7 @@ class PicCapture:
                 pass
             left, right = sorted([self.X.get(), event.x])
             top, bottom = sorted([self.Y.get(), event.y])
-            self.pic = ImageGrab.grab((left+1, top+1, right, bottom))
+            self.pic = ImageGrab.grab((left, top, right, bottom))
             self.rect = (left, top, right, bottom)
             self.top.destroy()
         self.canvas.bind('<ButtonRelease-1>', btnup)
