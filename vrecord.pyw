@@ -4,6 +4,10 @@ import ctypes
 import ctypes.wintypes
 import threading
 import traceback
+import tkinter
+import os
+import tempfile
+from PIL import ImageGrab
 user32 = ctypes.windll.user32
 
 class HotkeyHooker:
@@ -134,13 +138,7 @@ class MouseManager:
 
 
 
-import tkinter
-import tkinter.filedialog
-import os
-import tempfile
-import shutil
-from PIL import ImageGrab
-from time import sleep
+
 
 # 主要的截图处理工具，用于快速截图或者鼠标框选部分进行定位处理的工具
 class PicCapture:
@@ -172,7 +170,7 @@ class PicCapture:
                                     self.Y.get(), 
                                     event.x, 
                                     event.y, 
-                                    outline='black')
+                                    outline='red')
             
         self.canvas.bind('<B1-Motion>', btnmove)
         def btnup(event):
@@ -242,6 +240,13 @@ class KeyManagerGui():
         else:
             self.root.deiconify() # 显示隐藏窗口。withdraw 和 deiconify 为配对的函数。
             self.draw = True
+
+
+
+
+
+
+
 
 
 if __name__ == '__main__':
