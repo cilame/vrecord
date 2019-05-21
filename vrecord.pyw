@@ -133,6 +133,25 @@ class MouseManager:
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
+click_toggle = False
+def start_click():
+    click_toggle = True
+    def _():
+        global click_toggle
+        mm = MouseManager()
+        while click_toggle:
+            import time;time.sleep(.1)
+            mm.quick_clicks()
+    from threading import Thread
+    Thread(target=_).start()
+
+def stop_click():
+    global click_toggle
+    click_toggle = False
+
+
+
+
 
 
 
@@ -216,6 +235,7 @@ class KeyManagerGui():
 
     def exit(self):
         self.show_root() # 如果不显示就退出可能出现卡死错误。
+        self.root.wm_attributes('-topmost',1)
         self.root.quit()
 
     def start(self):
@@ -247,6 +267,14 @@ class KeyManagerGui():
 
 
 
+def test_log():
+    print('test_log')
+
+
+
+
+
+
 
 
 if __name__ == '__main__':
@@ -260,6 +288,14 @@ if __name__ == '__main__':
     hotkey.reg    ( win32con.VK_F2,  lambda:mouse.drawtext(str(mouse.get_curr_pos())+'\n当前坐标'))
     hotkey.reg    ( win32con.VK_F3,  lambda:screenshot_rect(keygui.root))
 
+
+    # 测试连点功能
+    hotkey.reg    ( win32con.VK_F5,  start_click)
+    hotkey.reg    ( win32con.VK_F6,  stop_click)
+
+
+    # 测试能不能挂钩鼠标左键右键
+    hotkey.reg    ( 1,  test_log)
 
 
     hotkey.start() # 注意 start 开启的顺序是 hotkey 兑现先挂钩再进入 keygui 的窗口循环事件当中
