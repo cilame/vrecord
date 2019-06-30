@@ -136,11 +136,13 @@ class recorder:
                 print('error empty record.')
                 return
             action_start_time = record_data[0]['time']
-            for action in record_data:
+            for idx,action in enumerate(record_data):
                 if self.repeat_stop_toggle: 
                     return
                 gtime = action['time'] - action_start_time
-                if gtime < .005: continue
+                if gtime < 0.007 and idx != 0 and action['action'] == 'move':
+                    # 针对鼠标移动的稍稍优化
+                    continue 
                 if action['type'] == 'mouse':
                     mouse.position = (int(action['x']), int(action['y']))
                     act = action['action']
@@ -151,7 +153,6 @@ class recorder:
                 elif action['type'] == 'keyboard':
                     if getattr(action['key'], 'name', None) not in self.unrecord_key:
                         getattr(keyboard, action['action'])(action['key'])
-                gtime = action['time'] - action_start_time
                 time.sleep(gtime/self.speed)
                 action_start_time = action['time']
         self.hook_repeat_stop('force_stop')
@@ -227,6 +228,7 @@ class recorder:
 from tkinter import ttk
 from tkinter import scrolledtext
 from tkinter.font import Font
+import tkinter.messagebox
 Frame = tkinter.Frame
 Text = scrolledtext.ScrolledText
 Label = ttk.Label
@@ -258,9 +260,11 @@ def repeat_times(record_data, times=1, speed=1.5):
             print('error empty record.')
             return
         action_start_time = record_data[0]['time']
-        for action in record_data:
+        for idx,action in enumerate(record_data):
             gtime = action['time'] - action_start_time
-            if gtime < .005: continue
+            if gtime < 0.007 and idx != 0 and action['action'] == 'move':
+                # 针对鼠标移动的稍稍优化
+                continue 
             if action['type'] == 'mouse':
                 mouse.position = (int(action['x']), int(action['y']))
                 act = action['action']
@@ -271,13 +275,12 @@ def repeat_times(record_data, times=1, speed=1.5):
             elif action['type'] == 'keyboard':
                 if getattr(action['key'], 'name', None) not in $unrecord_key:
                     getattr(keyboard, action['action'])(action['key'])
-            gtime = action['time'] - action_start_time
             time.sleep(gtime/speed)
             action_start_time = action['time']
 
 if __name__ == '__main__':
     speed = $speed
-    repeat_times(record_data, speed)
+    repeat_times(record_data, speed=speed)
 '''.strip()
 class recorder_gui:
     def __init__(self):
@@ -296,7 +299,6 @@ class recorder_gui:
         self.cbx.current(2)
         self.cbx.pack(side=tkinter.RIGHT)
         self.cbx.bind('<<ComboboxSelected>>', self.change_speed)
-
         Button(self.root, text='生成代码', command=self.create_code).pack(fill=tkinter.X)
         self.txt = Text(self.root, width=30, height=10, font=self.ft)
         self.txt.pack(fill=tkinter.BOTH,expand=True)
@@ -311,15 +313,20 @@ class recorder_gui:
             traceback.print_exc()
 
     def _recorder_close(self):
-        self.recorder.hook_record_stop('force_stop')
         self.recorder.hook_repeat_stop('force_stop')
+        self.recorder.hook_record_stop('force_stop')
         self.recorder.hook_main_stop('force_stop')
+        
 
     def on_closing(self):
         self._recorder_close()
-        self.root.wm_attributes('-toolwindow',1) # 关闭前必须显示且置顶，否则 tkinter 窗口会滞黏
-        self.root.wm_attributes('-topmost',1)
-        self.root.quit()
+        toggle = tkinter.messagebox.askokcancel('关闭','是否关闭工具？')
+        if toggle:
+            self.root.wm_attributes('-toolwindow',1) # 关闭前必须显示且置顶，否则 tkinter 窗口会滞黏
+            self.root.wm_attributes('-topmost',1)
+            self.root.quit()
+        else:
+            self.recorder.start()
 
     def start(self):
         threading.Thread(target=self.recorder.start).start()
