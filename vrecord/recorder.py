@@ -14,12 +14,12 @@ from pynput.keyboard import Controller as kcontroller
 class recorder:
     def __init__(
             self, 
-            start_record_key  = 'f1', 
-            stop_record_key   = 'f1', 
-            start_repeat_key  = 'f2',
-            stop_repeat_key   = 'f2',
-            start_repeats_key = 'f3',
-            stop_repeats_key  = 'f3',
+            start_record_key  = 'f7', 
+            stop_record_key   = 'f7', 
+            start_repeat_key  = 'f8',
+            stop_repeat_key   = 'f8',
+            start_repeats_key = 'f9',
+            stop_repeats_key  = 'f9',
             close_key         = 'esc',
             debug             = True,
             debug_info        = False,
@@ -140,7 +140,7 @@ class recorder:
                 if self.repeat_stop_toggle: 
                     return
                 gtime = action['time'] - action_start_time
-                if gtime < 0.007 and idx != 0 and action['action'] == 'move':
+                if gtime < 0.02 and idx != 0 and action['action'] == 'move':
                     # 针对鼠标移动的稍稍优化
                     continue 
                 if action['type'] == 'mouse':
@@ -153,7 +153,7 @@ class recorder:
                 elif action['type'] == 'keyboard':
                     if getattr(action['key'], 'name', None) not in self.unrecord_key:
                         getattr(keyboard, action['action'])(action['key'])
-                time.sleep(gtime/self.speed)
+                if self.speed: time.sleep(gtime/self.speed)
                 action_start_time = action['time']
         self.hook_repeat_stop('force_stop')
 
@@ -236,10 +236,10 @@ Button = ttk.Button
 Combobox = ttk.Combobox
 info = '''
 键盘鼠标操作录制工具
-F1  开始/停止录制
-F2  执行/停止录制好的任务
-F3  执行/停止录制好的任务(重复执行)
-F4  生成代码
+F7  开始/停止录制
+F8  执行/停止录制好的任务
+F9  执行/停止录制好的任务(重复执行)
+F10 生成代码
 ESC 关闭工具
 '''.strip()
 
@@ -262,7 +262,7 @@ def repeat_times(record_data, times=1, speed=1.5):
         action_start_time = record_data[0]['time']
         for idx,action in enumerate(record_data):
             gtime = action['time'] - action_start_time
-            if gtime < 0.007 and idx != 0 and action['action'] == 'move':
+            if gtime < 0.02 and idx != 0 and action['action'] == 'move':
                 # 针对鼠标移动的稍稍优化
                 continue 
             if action['type'] == 'mouse':
@@ -275,7 +275,7 @@ def repeat_times(record_data, times=1, speed=1.5):
             elif action['type'] == 'keyboard':
                 if getattr(action['key'], 'name', None) not in $unrecord_key:
                     getattr(keyboard, action['action'])(action['key'])
-            time.sleep(gtime/speed)
+            if speed: time.sleep(gtime/speed)
             action_start_time = action['time']
 
 if __name__ == '__main__':
@@ -285,7 +285,7 @@ if __name__ == '__main__':
 class recorder_gui:
     def __init__(self):
         self.root = tkinter.Tk()
-        self.key_hook = {'f4': self.create_code}
+        self.key_hook = {'f10': self.create_code}
         self.recorder = recorder(outclass = self) # 这里 outclass 是为了能在 recorder 内的关闭函数中接收关闭信号函数
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.close_sign = self.on_closing
@@ -293,14 +293,14 @@ class recorder_gui:
         Label(self.root, text=info, font=self.ft).pack(padx=5)
         fr = Frame(self.root)
         fr.pack(fill=tkinter.X)
-        Label(fr, text='速度 [程序执行速度,越大越快]').pack(side=tkinter.LEFT, padx=5)
+        Label(fr, text='速度 [执行速度,None模式慎用]').pack(side=tkinter.LEFT, padx=5)
         self.cbx = Combobox(fr,width=5,state='readonly')
-        self.cbx['values'] = (0.5,1.0,1.5,2.5,4.0,6.5,10.5,17.0,27.5)     # 设置下拉列表的值
+        self.cbx['values'] = (0.5,1.0,1.5,2.5,6.5,17.5,37.0,67.5,115.0,'None')     # 设置下拉列表的值
         self.cbx.current(2)
         self.cbx.pack(side=tkinter.RIGHT)
         self.cbx.bind('<<ComboboxSelected>>', self.change_speed)
         Button(self.root, text='生成代码', command=self.create_code).pack(fill=tkinter.X)
-        self.txt = Text(self.root, width=30, height=10, font=self.ft)
+        self.txt = Text(self.root, width=30, height=11, font=self.ft)
         self.txt.pack(fill=tkinter.BOTH,expand=True)
         global print
         print = self.print
@@ -316,7 +316,6 @@ class recorder_gui:
         self.recorder.hook_repeat_stop('force_stop')
         self.recorder.hook_record_stop('force_stop')
         self.recorder.hook_main_stop('force_stop')
-        
 
     def on_closing(self):
         self._recorder_close()
@@ -343,9 +342,10 @@ class recorder_gui:
         unrecord_key = str(list(set(self.recorder.unrecord_key)))
         record_data  = format_record_data(pprint.pformat(self.recorder.record, indent=2, width=200))
         self.clear_txt()
+        speed = 'None' if self.cbx.get() == 'None' else self.cbx.get()
         print(record_code.replace('$record_data', record_data)
                          .replace('$unrecord_key', unrecord_key)
-                         .replace('$speed', self.cbx.get()))
+                         .replace('$speed', speed))
 
     def clear_txt(self):
         self.txt.delete(0., tkinter.END)
@@ -356,9 +356,7 @@ class recorder_gui:
         self.txt.see(tkinter.END)
 
     def change_speed(self, *a):
-        self.recorder.speed = float(self.cbx.get())
-
-
+        self.recorder.speed = None if self.cbx.get() == 'None' else float(self.cbx.get())
 
 def execute():
     recorder_gui().start()
