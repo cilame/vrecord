@@ -36,7 +36,10 @@ def load_file_tree(
         mapdir_name = {},
         sorter      = {}
     ):
-    ignore.extend(exignore)
+    # 不能直接 ignore.extend(exignore), 解释起来太麻烦了，不解释了。
+    for i in exignore:
+        if i not in ignore:
+            ignore.append(i)
     next_nodes = []
     for idx,i in enumerate(os.listdir(local_dir)):
         if i in ignore: continue
@@ -62,7 +65,12 @@ def tree_on_select(tree):
     if len(items) != 1: return
     filepath = ''.join(tree.item(items[0],"values"))
     if os.path.isfile(filepath):
-        # size = os.path.getsize(filepath)
+        # 由于 notebooks 与内部的代码 Text 组件的关联还未做好
+        # 所以这里的处理将暂缓。等到关联做好就考虑使用
+        print(PROJECTCURR)
+        print(notebooks)
+        nb = notebooks.get(PROJECTCURR)['nb']
+        print(nb)
         pass
     elif os.path.isdir(filepath):
         for item in tree.get_children():
@@ -194,17 +202,11 @@ def change_project(projectname):
         notebooks[projectname]['fr'].pack(expand=True,fill="both")
     if notebooks[projectname]['init'] == False:
         notebooks[projectname]['init'] = True
-        _config = CONFIG.get(projectname)
-        if _config:
-            for x,y in _config.items():
-                d = y.copy()
-                make_tab(nb, d.pop('name'), **d)
-        else:
-            _config = CONFIG.get(PROJECTDEFAULTCONFIG)
-            for x,y in _config.items():
-                d = y.copy()
-                make_tab(nb, d.pop('name'), **d)
-            CONFIG[projectname] = _config.copy()
+        _config = CONFIG.get(PROJECTDEFAULTNAME)
+        for x,y in _config.items():
+            d = y.copy()
+            make_tab(nb, d.pop('name'), **d)
+        CONFIG[projectname] = _config.copy()
 
 
 def create_project(*a):
@@ -312,6 +314,7 @@ def create_tab(notebook, frame, name, **kw):
     tab_id = (set(notebook.tabs())^v).pop() 
 
 def make_tab(notebook, name, **kw):
+    # 后续可以在此处处理项目对应的 notebook 与对应的处理的绑定。
     if kw.get('type') == 'txt':
         create_tab(notebook, create_txt_fr(), name, **kw)
     elif kw.get('type') == 'lab':
@@ -322,9 +325,60 @@ def make_tab(notebook, name, **kw):
 
 
 
+
+# 这里主要处理快捷键以及右键菜单。
 def bind_ctl_key(func, key=None, shift=False):
     key = key.upper() if shift else key
     root.bind("<Control-{}>".format(key),lambda e:func())
+
+menu = tkinter.Menu(root, tearoff=0)
+def bind_menu(func, name):
+    menu.add_command(label=name, command=func)
+    root.bind("<Button-3>",lambda e:menu.post(e.x_root,e.y_root))
+
+def _create_file(filename, foc, new):
+    try:
+        filename = filename if filename.endswith('.py') else filename+'.py'
+        filenamepath = os.path.join(new[0], filename).replace('\\','/')
+        if not os.path.isfile(filenamepath):
+            with open(filenamepath, 'w', encoding='utf-8') as f:
+                f.write('# start.')
+            c = tree.insert(foc,0,text=filename,values=filenamepath)
+            tree.see(c)
+            return c
+        else:
+            return 'exist'
+    except:
+        traceback.print_exc()
+        print('create error.')
+
+def _menu_create_file(create_file_func):
+    foc = tree.focus()
+    new = tree.item(foc, 'values')
+    if new and os.path.isdir(new[0]):
+        create_file_func(foc, new)
+    else:
+        einfo = '创建脚本失败.'
+        tkinter.messagebox.showinfo(einfo,'请选中相应的文件夹节点进行文件创建。')
+
+def create_file(foc, new):
+    filename = askstring('创建脚本名','请输入脚本名称，尽量不要使用特殊字符。')
+    if not filename: return 
+    _create_file(filename, foc, new)
+
+def create_file_default(foc, new, idx=1):
+    filename = 'dft{}'.format(idx)
+    if _create_file(filename, foc, new) == 'exist':
+        create_file_default(foc, new, idx=idx+1)
+
+def menu_create_file():
+    _menu_create_file(create_file)
+
+def menu_create_file_default():
+    _menu_create_file(create_file_default)
+
+bind_menu(menu_create_file, '创建命名脚本')
+bind_menu(menu_create_file_default, '创建默认脚本')
 
 
 
@@ -332,6 +386,7 @@ def bind_ctl_key(func, key=None, shift=False):
 
 
 # 需要用一个 json 来保存相应的配置信息
+# 后续可以考虑扩展，不过目前用处不大，主要用于保证 notebook 生成的结构。
 CONFIG = {
     PROJECTDEFAULTNAME: { # 默认空间的配置
         0:{
@@ -346,20 +401,6 @@ CONFIG = {
         }
     },
 }
-
-CONFIG[PROJECTDEFAULTCONFIG] = { # 没有配置时使用的配置
-    0:{
-        'name':'帮助',
-        'type':'lab',
-        'text':'感觉还是稍微有点奇怪的默认处理方式',
-    },
-    1:{
-        'name':'代码',
-        'type':'txt',
-        'text':'asdfasdf',
-    }
-}
-
 
 if __name__ == '__main__':
     init_project()
