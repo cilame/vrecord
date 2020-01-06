@@ -251,9 +251,15 @@ F8  执行/停止录制好的任务
 F9  执行/停止录制好的任务(重复执行)
 F10 生成代码
 ESC 关闭工具
+'''.strip()
 
-*注意：区分左右 shift 将会失去
-  shift 组合方向键选中文本的能力
+warning = '''
+*注意：
+    区分左右 shift 某些环境将会失去 shift 组合方向键选中文本的能力，请一定注意。
+    原因：
+        某些环境无法实现 shift 选中文本，有一种解决方法，是在代码中解决是在代码中左右 shift 同时按才能实现 shift 选中文本
+        为了兼容，所以默认 shift 捕捉为每次同时按下左右 shift，正常环境下，这种也适用。
+        同时这个也可以取消，只要将 “是否区分左右shift” 设置为是即可。
 '''.strip()
 
 record_code = '''
@@ -309,7 +315,7 @@ class recorder_gui:
         fr.pack(fill=tkinter.X)
         Label(fr, text='速度 [执行速度,None模式慎用]', font=self.ft).pack(side=tkinter.LEFT, padx=5)
         self.cbx = Combobox(fr,width=5,state='readonly')
-        self.cbx['values'] = (0.5,1.0,1.5,2.5,6.5,17.5,37.0,67.5,115.0,'None')     # 设置下拉列表的值
+        self.cbx['values'] = (0.5,1.0,1.5,2.5,6.5,17.5,37.0,67.5,115.0,'None')
         self.cbx.current(2)
         self.cbx.pack(side=tkinter.RIGHT)
         self.cbx.bind('<<ComboboxSelected>>', self.change_speed)
@@ -317,11 +323,11 @@ class recorder_gui:
         fr.pack(fill=tkinter.X)
         Label(fr, text='是否区分左右shift [推荐默认否]', font=self.ft).pack(side=tkinter.LEFT, padx=5)
         self.cbx2 = Combobox(fr,width=5,state='readonly')
-        self.cbx2['values'] = ('否', '是')     # 设置下拉列表的值
+        self.cbx2['values'] = ('否', '是')
         self.cbx2.current(0)
         self.cbx2.pack(side=tkinter.RIGHT)
         self.cbx2.bind('<<ComboboxSelected>>', self.change_shift_diff)
-
+        Button(self.root, text='注意事项', command=self.create_warning).pack(fill=tkinter.X)
         Button(self.root, text='生成代码', command=self.create_code).pack(fill=tkinter.X)
         self.txt = Text(self.root, width=30, height=11, font=self.ft)
         self.txt.pack(fill=tkinter.BOTH,expand=True)
@@ -369,6 +375,10 @@ class recorder_gui:
         print(record_code.replace('$record_data', record_data)
                          .replace('$unrecord_key', unrecord_key)
                          .replace('$speed', speed))
+
+    def create_warning(self):
+        self.clear_txt()
+        print(warning)
 
     def clear_txt(self):
         self.txt.delete(0., tkinter.END)
