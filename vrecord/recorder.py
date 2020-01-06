@@ -11,6 +11,8 @@ from pynput.keyboard import Key
 from pynput.keyboard import Listener as klistener
 from pynput.keyboard import Controller as kcontroller
 
+SHIFT_DIFF = False
+
 class recorder:
     def __init__(
             self, 
@@ -102,6 +104,10 @@ class recorder:
         msg['time'] = time.time()
         msg['key'] = key
         self.safe_add_action(msg)
+        if key == Key.shift and not SHIFT_DIFF:
+            msg = msg.copy()          # 由于某些原因，shift 必须与 shift_r 配合才能实现 “shift选中”
+            msg['key'] = Key.shift_r  # 所以这里将 “按下shift” 粗暴的填充为同时按下 左右shift。通常不会有影响
+            self.safe_add_action(msg) # 相较于左右shift的区分，shift 处理文本时的选中更为重要
 
     def on_release(self, key):
         msg = {}
@@ -110,6 +116,10 @@ class recorder:
         msg['time'] = time.time()
         msg['key'] = key
         self.safe_add_action(msg)
+        if key == Key.shift and not SHIFT_DIFF:
+            msg = msg.copy()          # 由于某些原因，shift 必须与 shift_r 配合才能实现 “shift选中”
+            msg['key'] = Key.shift_r  # 所以这里将 “按下shift” 粗暴的填充为同时按下 左右shift。通常不会有影响
+            self.safe_add_action(msg) # 相较于左右shift的区分，shift 处理文本时的选中更为重要
 
     def start_record(self):
         self.record.clear()
@@ -241,6 +251,9 @@ F8  执行/停止录制好的任务
 F9  执行/停止录制好的任务(重复执行)
 F10 生成代码
 ESC 关闭工具
+
+*注意：区分左右 shift 将会失去
+  shift 组合方向键选中文本的能力
 '''.strip()
 
 record_code = '''
@@ -291,14 +304,24 @@ class recorder_gui:
         self.close_sign = self.on_closing
         self.ft = Font(family='Consolas',size=10)
         Label(self.root, text=info, font=self.ft).pack(padx=5)
+
         fr = Frame(self.root)
         fr.pack(fill=tkinter.X)
-        Label(fr, text='速度 [执行速度,None模式慎用]').pack(side=tkinter.LEFT, padx=5)
+        Label(fr, text='速度 [执行速度,None模式慎用]', font=self.ft).pack(side=tkinter.LEFT, padx=5)
         self.cbx = Combobox(fr,width=5,state='readonly')
         self.cbx['values'] = (0.5,1.0,1.5,2.5,6.5,17.5,37.0,67.5,115.0,'None')     # 设置下拉列表的值
         self.cbx.current(2)
         self.cbx.pack(side=tkinter.RIGHT)
         self.cbx.bind('<<ComboboxSelected>>', self.change_speed)
+        fr = Frame(self.root)
+        fr.pack(fill=tkinter.X)
+        Label(fr, text='是否区分左右shift [推荐默认否]', font=self.ft).pack(side=tkinter.LEFT, padx=5)
+        self.cbx2 = Combobox(fr,width=5,state='readonly')
+        self.cbx2['values'] = ('否', '是')     # 设置下拉列表的值
+        self.cbx2.current(0)
+        self.cbx2.pack(side=tkinter.RIGHT)
+        self.cbx2.bind('<<ComboboxSelected>>', self.change_shift_diff)
+
         Button(self.root, text='生成代码', command=self.create_code).pack(fill=tkinter.X)
         self.txt = Text(self.root, width=30, height=11, font=self.ft)
         self.txt.pack(fill=tkinter.BOTH,expand=True)
@@ -357,6 +380,10 @@ class recorder_gui:
 
     def change_speed(self, *a):
         self.recorder.speed = None if self.cbx.get() == 'None' else float(self.cbx.get())
+
+    def change_shift_diff(self, *a):
+        global SHIFT_DIFF
+        SHIFT_DIFF = True if self.cbx2.get() == '是' else False
 
 def execute():
     recorder_gui().start()
